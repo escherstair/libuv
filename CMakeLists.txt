@@ -24,6 +24,12 @@ cmake_dependent_option(LIBUV_BUILD_BENCH
   "Build the benchmarks when building unit tests and we are the root project" ON
   "LIBUV_BUILD_TESTS" OFF)
 
+# Qemu Build
+option(QEMU "build for qemu" OFF)
+if(QEMU)
+  add_definitions(-D__QEMU__=1)
+endif()
+
 # Compiler check
 string(CONCAT is-msvc $<OR:
   $<C_COMPILER_ID:MSVC>,
@@ -101,6 +107,8 @@ if(WIN32)
   list(APPEND uv_defines WIN32_LEAN_AND_MEAN _WIN32_WINNT=0x0600)
   list(APPEND uv_libraries
        psapi
+       user32
+       advapi32
        iphlpapi
        userenv
        ws2_32)
@@ -176,6 +184,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "AIX")
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Android")
+  list(APPEND uv_defines _GNU_SOURCE)
   list(APPEND uv_libraries dl)
   list(APPEND uv_sources
        src/unix/android-ifaddrs.c
@@ -186,8 +195,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Android")
        src/unix/pthread-fixes.c
        src/unix/random-getentropy.c
        src/unix/random-getrandom.c
-       src/unix/random-sysctl-linux.c
-       src/unix/sysinfo-loadavg.c)
+       src/unix/random-sysctl-linux.c)
 endif()
 
 if(APPLE OR CMAKE_SYSTEM_NAME MATCHES "Android|Linux|OS390")
@@ -200,7 +208,6 @@ endif()
 
 if(CMAKE_SYSTEM_NAME MATCHES "DragonFly|FreeBSD|NetBSD|OpenBSD")
   list(APPEND uv_sources src/unix/posix-hrtime.c src/unix/bsd-proctitle.c)
-  list(APPEND uv_libraries kvm)
 endif()
 
 if(APPLE OR CMAKE_SYSTEM_NAME MATCHES "DragonFly|FreeBSD|NetBSD|OpenBSD")
@@ -232,12 +239,12 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
        src/unix/linux-syscalls.c
        src/unix/procfs-exepath.c
        src/unix/random-getrandom.c
-       src/unix/random-sysctl-linux.c
-       src/unix/sysinfo-loadavg.c)
+       src/unix/random-sysctl-linux.c)
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "NetBSD")
   list(APPEND uv_sources src/unix/netbsd.c)
+  list(APPEND uv_libraries kvm)
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "OpenBSD")
@@ -413,6 +420,9 @@ if(LIBUV_BUILD_TESTS)
        test/test-loop-time.c
        test/test-multiple-listen.c
        test/test-mutexes.c
+       test/test-not-readable-nor-writable-on-read-error.c
+       test/test-not-readable-on-eof.c
+       test/test-not-writable-after-shutdown.c
        test/test-osx-select.c
        test/test-pass-always.c
        test/test-ping-pong.c
@@ -468,6 +478,7 @@ if(LIBUV_BUILD_TESTS)
        test/test-tcp-oob.c
        test/test-tcp-open.c
        test/test-tcp-read-stop.c
+       test/test-tcp-read-stop-start.c
        test/test-tcp-shutdown-after-write.c
        test/test-tcp-try-write.c
        test/test-tcp-try-write-error.c
@@ -494,6 +505,7 @@ if(LIBUV_BUILD_TESTS)
        test/test-udp-create-socket-early.c
        test/test-udp-dgram-too-big.c
        test/test-udp-ipv6.c
+       test/test-udp-mmsg.c
        test/test-udp-multicast-interface.c
        test/test-udp-multicast-interface6.c
        test/test-udp-multicast-join.c
@@ -504,6 +516,7 @@ if(LIBUV_BUILD_TESTS)
        test/test-udp-send-and-recv.c
        test/test-udp-send-hang-loop.c
        test/test-udp-send-immediate.c
+       test/test-udp-sendmmsg-error.c
        test/test-udp-send-unreachable.c
        test/test-udp-try-send.c
        test/test-uname.c
@@ -525,13 +538,17 @@ if(LIBUV_BUILD_TESTS)
   add_executable(uv_run_tests_a ${uv_test_sources} uv_win_longpath.manifest)
   target_compile_definitions(uv_run_tests_a PRIVATE ${uv_defines})
   target_compile_options(uv_run_tests_a PRIVATE ${uv_cflags})
-  target_link_libraries(uv_run_tests_a uv_a ${uv_test_libraries})
+  if(QEMU)
+    target_link_libraries(uv_run_tests_a uv_a ${uv_test_libraries} -static)
+  else()
+    target_link_libraries(uv_run_tests_a uv_a ${uv_test_libraries})
+  endif()
   add_test(NAME uv_test_a
            COMMAND uv_run_tests_a
            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 endif()
 
-if(UNIX)
+if(UNIX OR MINGW)
   # Now for some gibbering horrors from beyond the stars...
   foreach(lib IN LISTS uv_libraries)
     list(APPEND LIBS "-l${lib}")
@@ -558,10 +575,18 @@ if(UNIX)
   install(TARGETS uv_a ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 endif()
 
-if(WIN32)
+if(MSVC)
   install(DIRECTORY include/ DESTINATION include)
   install(FILES LICENSE DESTINATION .)
   install(TARGETS uv uv_a
           RUNTIME DESTINATION lib/$<CONFIG>
           ARCHIVE DESTINATION lib/$<CONFIG>)
 endif()
+
+message(STATUS "summary of build options:
+    Install prefix:  ${CMAKE_INSTALL_PREFIX}
+    Target system:   ${CMAKE_SYSTEM_NAME}
+    Compiler:
+      C compiler:    ${CMAKE_C_COMPILER}
+      CFLAGS:        ${CMAKE_C_FLAGS_${_build_type}} ${CMAKE_C_FLAGS}
+")

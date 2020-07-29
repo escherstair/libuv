@@ -145,6 +145,7 @@ TEST_DECLARE   (tcp_flags)
 TEST_DECLARE   (tcp_write_to_half_open_connection)
 TEST_DECLARE   (tcp_unexpected_read)
 TEST_DECLARE   (tcp_read_stop)
+TEST_DECLARE   (tcp_read_stop_start)
 TEST_DECLARE   (tcp_bind6_error_addrinuse)
 TEST_DECLARE   (tcp_bind6_error_addrnotavail)
 TEST_DECLARE   (tcp_bind6_error_fault)
@@ -162,6 +163,7 @@ TEST_DECLARE   (udp_send_and_recv)
 TEST_DECLARE   (udp_send_hang_loop)
 TEST_DECLARE   (udp_send_immediate)
 TEST_DECLARE   (udp_send_unreachable)
+TEST_DECLARE   (udp_mmsg)
 TEST_DECLARE   (udp_multicast_join)
 TEST_DECLARE   (udp_multicast_join6)
 TEST_DECLARE   (udp_multicast_ttl)
@@ -180,6 +182,7 @@ TEST_DECLARE   (udp_open_connect)
 #ifndef _WIN32
 TEST_DECLARE   (udp_send_unix)
 #endif
+TEST_DECLARE   (udp_sendmmsg_error)
 TEST_DECLARE   (udp_try_send)
 TEST_DECLARE   (pipe_bind_error_addrinuse)
 TEST_DECLARE   (pipe_bind_error_addrnotavail)
@@ -495,6 +498,10 @@ TEST_DECLARE   (handle_type_name)
 TEST_DECLARE   (req_type_name)
 TEST_DECLARE   (getters_setters)
 
+TEST_DECLARE   (not_writable_after_shutdown)
+TEST_DECLARE   (not_readable_nor_writable_on_read_error)
+TEST_DECLARE   (not_readable_on_eof)
+
 #ifndef _WIN32
 TEST_DECLARE  (fork_timer)
 TEST_DECLARE  (fork_socketpair)
@@ -692,6 +699,8 @@ TASK_LIST_START
   TEST_ENTRY  (tcp_read_stop)
   TEST_HELPER (tcp_read_stop, tcp4_echo_server)
 
+  TEST_ENTRY  (tcp_read_stop_start)
+
   TEST_ENTRY  (tcp_bind6_error_addrinuse)
   TEST_ENTRY  (tcp_bind6_error_addrnotavail)
   TEST_ENTRY  (tcp_bind6_error_fault)
@@ -715,11 +724,13 @@ TASK_LIST_START
   TEST_ENTRY  (udp_options)
   TEST_ENTRY  (udp_options6)
   TEST_ENTRY  (udp_no_autobind)
+  TEST_ENTRY  (udp_mmsg)
   TEST_ENTRY  (udp_multicast_interface)
   TEST_ENTRY  (udp_multicast_interface6)
   TEST_ENTRY  (udp_multicast_join)
   TEST_ENTRY  (udp_multicast_join6)
   TEST_ENTRY  (udp_multicast_ttl)
+  TEST_ENTRY  (udp_sendmmsg_error)
   TEST_ENTRY  (udp_try_send)
 
   TEST_ENTRY  (udp_open)
@@ -1010,7 +1021,7 @@ TASK_LIST_START
   TEST_ENTRY  (fs_event_close_with_pending_event)
   TEST_ENTRY  (fs_event_close_in_callback)
   TEST_ENTRY  (fs_event_start_and_close)
-  TEST_ENTRY  (fs_event_error_reporting)
+  TEST_ENTRY_CUSTOM (fs_event_error_reporting, 0, 0, 60000)
   TEST_ENTRY  (fs_event_getpath)
   TEST_ENTRY  (fs_scandir_empty_dir)
   TEST_ENTRY  (fs_scandir_non_existent_dir)
@@ -1097,6 +1108,13 @@ TASK_LIST_START
 #ifndef __MVS__
   TEST_ENTRY  (idna_toascii)
 #endif
+
+  TEST_ENTRY    (not_writable_after_shutdown)
+  TEST_HELPER   (not_writable_after_shutdown, tcp4_echo_server)
+  TEST_ENTRY    (not_readable_nor_writable_on_read_error)
+  TEST_HELPER   (not_readable_nor_writable_on_read_error, tcp4_echo_server)
+  TEST_ENTRY    (not_readable_on_eof)
+  TEST_HELPER   (not_readable_on_eof, tcp4_echo_server)
 
 #if 0
   /* These are for testing the test runner. */
